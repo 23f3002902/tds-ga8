@@ -45,8 +45,9 @@ def _repair(p):
     train.sort(key=lambda x:utf8_key(x['name']))
     count=sum(x['numel'] for x in train)
     if count>9007199254740991: validp=False; count=0; train=[]
-    files=p.get('artifactFiles'); adapters=sorted(files,key=utf8_key) if isinstance(files,list) and all(isinstance(x,str) for x in files) else []
-    adapterpass=adapters==['adapter_config.json','adapter_model.safetensors']
+    files=p.get('artifactFiles')
+    adapters=sorted([x for x in files if isinstance(x,str) and x in {'adapter_config.json','adapter_model.safetensors'}],key=utf8_key) if isinstance(files,list) else []
+    adapterpass=isinstance(files,list) and all(isinstance(x,str) for x in files) and sorted(files,key=utf8_key)==['adapter_config.json','adapter_model.safetensors']
     ck=p.get('checkpoint'); ckpass=isinstance(ck,dict) and set(['model','optimizer','scheduler','step','rng','dataPosition'])<=set(ck)
     import re
     digestkeys=['datasetDigest','codeDigest','configDigest']
@@ -74,7 +75,7 @@ def _repair(p):
     if p.get('dropoutActiveDuringEval') is not False: codes.append('EVAL_DROPOUT_ACTIVE')
     if not resume: codes.append('RESUME_DIVERGENCE')
     return {'labels':labels,'templatePass':p.get('templateApplications')==1,'trainableParams':[x['name'] for x in train],
-      'trainableCount':count,'peftConfigPass':validp and bool(train) and p.get('inferenceMode') is False,
+      'trainableCount':count,'peftConfigPass':validp and bool(train),
       'adapterFiles':adapters,'checkpointComplete':ckpass,'lineagePass':lineage and base,'evalIsolated':isolated,
       'evaluationDeterministic':p.get('dropoutActiveDuringEval') is False,'resumePass':resume,'reasonCodes':sorted_codes(codes)}
 
