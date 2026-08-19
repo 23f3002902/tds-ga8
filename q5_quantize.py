@@ -58,7 +58,7 @@ def _freeze(p):
 
 def _manifest(c):
     inv=c.get("inventory") if isinstance(c,dict) else None
-    if not isinstance(inv,list): return False,None
+    if not isinstance(inv,list) or not inv: return False,None
     seen=set(); previous=None; total=0
     for x in inv:
         if not isinstance(x,dict) or list(x.keys())!="name bytes sha256".split(): return False,None
@@ -78,7 +78,7 @@ def _policy_ok(pol,names,lats):
       and is_safe_integer(pol.get("maxBytes")) and is_finite_number(pol.get("aggregateFloor")) and 0<=pol["aggregateFloor"]<=1
       and isinstance(req,dict) and all(isinstance(k,str) and k and is_finite_number(v) and 0<=v<=1 for k,v in req.items())
       and is_finite_number(pol.get("maxLatencyMs")) and pol["maxLatencyMs"]>=0 and isinstance(lats,dict)
-      and set(lats)==set(names) and all(is_finite_number(lats[n]) and lats[n]>=0 for n in names))
+      and all(isinstance(k,str) and is_finite_number(v) and v>=0 for k,v in lats.items()))
 
 def _select(p):
     supplied,rows,pol=p.get("candidates"),p.get("rows"),p.get("policy")
@@ -111,6 +111,7 @@ def _select(p):
                     slices[s]=round(sum(r["label"]==r["predictions"][n] for r in sr)/len(sr),12)
                     if slices[s]<floor: codes.append(f"SLICE_FLOOR:{s}")
         latency=lats.get(n) if isinstance(lats,dict) and isinstance(n,str) and is_finite_number(lats.get(n)) and lats.get(n)>=0 else None
+        if policyok and latency is None: codes.append("INVALID_POLICY")
         if policyok and total is not None and total>pol["maxBytes"]: codes.append("SIZE_LIMIT")
         if policyok and latency is not None and latency>pol["maxLatencyMs"]: codes.append("LATENCY_LIMIT")
         codes=sorted_codes(codes)
