@@ -218,7 +218,7 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         codes.append("INVALID_LINEAGE")
 
     valid_rows = isinstance(rows, list) and bool(rows)
-    if valid_rows and "INVALID_INPUT" not in codes and "INVALID_LINEAGE" not in codes:
+    if valid_rows:
         for row in rows:
             if (
                 not isinstance(row, dict)
@@ -236,7 +236,7 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
 
     test_metric: float | None = None
     slice_pass = False
-    if valid_rows:
+    if valid_rows and "INVALID_INPUT" not in codes and "INVALID_LINEAGE" not in codes:
         correct = sum(row["label"] == row["prediction"] for row in rows)
         test_metric = round(correct / len(rows), 12)
         if valid_metric_floor and test_metric < float(metric_floor):
