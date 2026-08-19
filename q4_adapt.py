@@ -35,7 +35,7 @@ def _repair(p):
         valid_tokens=all(isinstance(t,dict) and is_safe_integer(t.get('id')) and t.get('role') in {'system','user','assistant'} and isinstance(t.get('padding'),bool) and isinstance(t.get('text'),str) for t in tokens)
     labels=[t['id'] if valid_tokens and t['role']=='assistant' and not t['padding'] else -100 for t in tokens] if isinstance(tokens,list) else []
     params=p.get('parameters'); allowed=p.get('allowedTargets'); pcodes=[]; train=[]
-    validp=isinstance(params,list) and isinstance(allowed,list) and bool(allowed) and len(allowed)==len(set(allowed)) and all(isinstance(x,str) and x for x in allowed)
+    validp=isinstance(params,list) and isinstance(allowed,list) and bool(allowed) and all(isinstance(x,str) and x for x in allowed) and len(allowed)==len(set(allowed))
     if validp:
         seen=set()
         for x in params:
