@@ -103,7 +103,14 @@ def _object_reason_codes(item: Any) -> tuple[list[str], list[dict[str, Any]], An
             codes.append("SCHEMA_INVALID")
         for line in nonblank:
             try:
-                row = json.loads(line)
+                # Match standards-compliant JSON.parse: NaN and infinities are
+                # syntax errors, not parsed values that later fail the schema.
+                row = json.loads(
+                    line,
+                    parse_constant=lambda value: (_ for _ in ()).throw(
+                        json.JSONDecodeError("invalid constant", value, 0)
+                    ),
+                )
             except (json.JSONDecodeError, UnicodeError):
                 codes.append("JSONL_INVALID")
                 continue
