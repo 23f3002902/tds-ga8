@@ -98,7 +98,9 @@ def _object_reason_codes(item: Any) -> tuple[list[str], list[dict[str, Any]], An
     if not isinstance(content, str):
         codes.append("SCHEMA_INVALID")
     else:
-        nonblank = [line for line in content.splitlines() if line.strip()]
+        # JSONL records are delimited by LF.  Unicode line/paragraph separator
+        # characters are valid JSON string data and must not create records.
+        nonblank = [line for line in content.split("\n") if line.strip()]
         if not nonblank:
             codes.append("SCHEMA_INVALID")
         for line in nonblank:
