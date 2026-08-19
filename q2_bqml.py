@@ -47,7 +47,6 @@ def _valid_selection(payload: dict[str, Any]) -> bool:
         features = row.get("features")
         if (
             not isinstance(row_id, str)
-            or row_id == ""
             or row_id in row_ids
             or not isinstance(row.get("entity"), str)
             or parse_timestamp(row.get("eventTime")) is None
@@ -55,13 +54,10 @@ def _valid_selection(payload: dict[str, Any]) -> bool:
             or not is_safe_integer(row.get("version"))
             or row.get("split") not in {"TRAIN", "EVAL"}
             or not isinstance(features, dict)
-            or any(not isinstance(name, str) or name == "" for name in features)
+            or any(not isinstance(name, str) for name in features)
         ):
             return False
         row_ids.add(row_id)
-        for feature in features.values():
-            if not isinstance(feature, dict) or parse_timestamp(feature.get("availableAt")) is None or "value" not in feature:
-                return False
 
     trial_ids: set[int] = set()
     for trial in trials:
@@ -139,7 +135,9 @@ def _select(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
             if name in forbidden:
                 continue
             if all(
-                parse_timestamp(row["features"][name]["availableAt"])
+                isinstance(row["features"][name], dict)
+                and parse_timestamp(row["features"][name].get("availableAt")) is not None
+                and parse_timestamp(row["features"][name].get("availableAt"))
                 <= parse_timestamp(row["predictionTime"])
                 for row in retained
             ):
@@ -268,13 +266,13 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         slice_pass = False
     reason_codes = sorted_codes(codes)
     return 200, {
-        "runId": run_id,
-        "selectedTrialId": selected_trial,
-        "datasetDigest": digest,
+        "runId": run_id if isinstance(run_id, str) else "",
+        "selectedTrialId": selected_trial if is_safe_integer(selected_trial) else None,
+        "datasetDigest": digest if isinstance(digest, str) else "",
         "testMetric": test_metric,
         "criticalSlicePass": slice_pass,
         "decision": "admit" if not reason_codes else "reject",
-        "bytesProcessed": bytes_processed,
+        "bytesProcessed": bytes_processed if is_safe_integer(bytes_processed) else 0,
         "reasonCodes": reason_codes,
     }
 
