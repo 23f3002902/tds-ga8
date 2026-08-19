@@ -114,7 +114,11 @@ def handle_promote(payload: Any) -> tuple[int, dict[str, Any]]:
                     codes.append("STALE_EVALUATION")
 
             artifact_digest = item.get("artifactDigest") if isinstance(item, dict) else None
-            if evaluation.get("artifactDigest") != artifact_digest:
+            if (
+                not isinstance(artifact_digest, str)
+                or artifact_digest == ""
+                or evaluation.get("artifactDigest") != artifact_digest
+            ):
                 codes.append("ARTIFACT_MISMATCH")
             if policy_ok:
                 if evaluation.get("datasetDigest") != policy["datasetDigest"]:
