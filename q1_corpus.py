@@ -19,7 +19,7 @@ from ga8_utils import (
 
 
 ROW_KEYS = {"id", "entity", "eventTime", "revision", "text"}
-URI_RE = re.compile(r"\Ags://[^/]+/[^/]+\Z")
+URI_RE = re.compile(r"\Ags://[^/]+/.+\Z")
 GENERATION_RE = re.compile(r"^[0-9]+$")
 CRC32C_RE = re.compile(r"^[0-9a-f]{8}$")
 
