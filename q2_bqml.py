@@ -188,15 +188,7 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     max_bytes = payload.get("maxBytes")
 
     valid_metric_floor = is_finite_number(metric_floor) and 0 <= float(metric_floor) <= 1
-    valid_slice_policy = (
-        isinstance(required_slices, dict)
-        and all(
-            isinstance(name, str)
-            and is_finite_number(floor)
-            and 0 <= float(floor) <= 1
-            for name, floor in required_slices.items()
-        )
-    )
+    valid_slice_policy = isinstance(required_slices, dict)
     valid_floors = valid_metric_floor and valid_slice_policy
     valid_counts = is_safe_integer(bytes_processed) and is_safe_integer(max_bytes)
     valid_request_identity = (
@@ -253,6 +245,10 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         if valid_slice_policy:
             slice_pass = True
             for name, floor in required_slices.items():
+                if not is_finite_number(floor) or not 0 <= float(floor) <= 1:
+                    codes.append("INVALID_INPUT")
+                    slice_pass = False
+                    continue
                 selected_rows = [row for row in rows if row["slice"] == name]
                 if not selected_rows:
                     codes.append(f"MISSING_SLICE:{name}")
