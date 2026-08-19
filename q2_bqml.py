@@ -36,7 +36,6 @@ def _valid_selection(payload: dict[str, Any]) -> bool:
         or not isinstance(rows, list)
         or not rows
         or not isinstance(trials, list)
-        or len(trials) > limit
     ):
         return False
 
@@ -113,6 +112,11 @@ def _select(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
             "datasetDigest": None,
             "reasonCodes": ["INVALID_INPUT"],
         }
+    elif len(payload["trials"]) > payload["numTrialsLimit"]:
+        response = {
+            "runId": run_id, "selectedTrialId": None, "trainRowIds": [], "evalRowIds": [],
+            "featureNames": [], "datasetDigest": None, "reasonCodes": ["TRIAL_LIMIT_EXCEEDED"],
+        }
     else:
         retained_by_key: dict[tuple[str, Any], dict[str, Any]] = {}
         for row in payload["rows"]:
@@ -164,7 +168,7 @@ def _select(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
             "evalRowIds": eval_ids,
             "featureNames": eligible_features,
             "datasetDigest": dataset_digest,
-            "reasonCodes": [] if selected is not None else ["NO_ELIGIBLE_TRIAL"],
+            "reasonCodes": [] if selected is not None else ["NO_SUCCESSFUL_TRIAL"],
         }
 
     with _LOCK:
@@ -268,6 +272,7 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         "testMetric": test_metric,
         "criticalSlicePass": slice_pass,
         "decision": "admit" if not reason_codes else "reject",
+        "bytesProcessed": bytes_processed,
         "reasonCodes": reason_codes,
     }
 
