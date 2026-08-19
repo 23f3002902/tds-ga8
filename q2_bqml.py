@@ -188,10 +188,9 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     bytes_processed = payload.get("bytesProcessed")
     max_bytes = payload.get("maxBytes")
 
-    valid_floors = (
-        is_finite_number(metric_floor)
-        and 0 <= float(metric_floor) <= 1
-        and isinstance(required_slices, dict)
+    valid_metric_floor = is_finite_number(metric_floor) and 0 <= float(metric_floor) <= 1
+    valid_slice_policy = (
+        isinstance(required_slices, dict)
         and all(
             isinstance(name, str)
             and name != ""
@@ -200,6 +199,7 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
             for name, floor in required_slices.items()
         )
     )
+    valid_floors = valid_metric_floor and valid_slice_policy
     valid_counts = is_safe_integer(bytes_processed) and is_safe_integer(max_bytes)
     if not valid_floors or not valid_counts or not isinstance(rows, list):
         codes.append("INVALID_INPUT")
@@ -239,26 +239,27 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
 
     test_metric: float | None = None
     slice_pass = False
-    if valid_rows and valid_floors:
+    if valid_rows:
         correct = sum(row["label"] == row["prediction"] for row in rows)
         test_metric = round(correct / len(rows), 12)
-        if test_metric < float(metric_floor):
+        if valid_metric_floor and test_metric < float(metric_floor):
             codes.append("AGGREGATE_FLOOR")
 
-        slice_pass = True
-        for name, floor in required_slices.items():
-            selected_rows = [row for row in rows if row["slice"] == name]
-            if not selected_rows:
-                codes.append(f"MISSING_SLICE:{name}")
-                slice_pass = False
-                continue
-            accuracy = round(
-                sum(row["label"] == row["prediction"] for row in selected_rows) / len(selected_rows),
-                12,
-            )
-            if accuracy < float(floor):
-                codes.append(f"SLICE_FLOOR:{name}")
-                slice_pass = False
+        if valid_slice_policy:
+            slice_pass = True
+            for name, floor in required_slices.items():
+                selected_rows = [row for row in rows if row["slice"] == name]
+                if not selected_rows:
+                    codes.append(f"MISSING_SLICE:{name}")
+                    slice_pass = False
+                    continue
+                accuracy = round(
+                    sum(row["label"] == row["prediction"] for row in selected_rows) / len(selected_rows),
+                    12,
+                )
+                if accuracy < float(floor):
+                    codes.append(f"SLICE_FLOOR:{name}")
+                    slice_pass = False
 
     if valid_counts and bytes_processed > max_bytes:
         codes.append("BYTE_LIMIT")
