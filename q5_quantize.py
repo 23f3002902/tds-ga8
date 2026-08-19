@@ -56,7 +56,7 @@ def _freeze(p):
     with _L: _F[fid]=(finger,copy.deepcopy(resp))
     return 200,resp
 
-def _manifest(c):
+def _manifest(c, recorded_candidate=None):
     inv=c.get("inventory") if isinstance(c,dict) else None
     if not isinstance(inv,list) or not inv: return False,None
     seen=set(); previous=None; total=0
@@ -69,7 +69,8 @@ def _manifest(c):
         previous=key;seen.add(n);total+=b
         if total>9007199254740991:return False,None
     pkg=hashlib.sha256(compact_json(inv).encode("utf-8")).hexdigest()
-    return (True,total) if total==c.get("totalBytes") and pkg==c.get("packageDigest") else (False,None)
+    matches_recorded = isinstance(recorded_candidate,dict) and inv==recorded_candidate.get("inventory")
+    return (True,total) if matches_recorded and total==c.get("totalBytes") and pkg==c.get("packageDigest") else (False,None)
 
 def _policy_ok(pol,names,lats):
     if not isinstance(pol,dict) or not all(isinstance(n,str) and n for n in names): return False
@@ -96,7 +97,8 @@ def _select(p):
         if not isinstance(c,dict) or c.get("status")!="frozen": codes.append("NOT_FROZEN")
         if not lineage: codes.append("INVALID_LINEAGE")
         if not policyok: codes.append("INVALID_POLICY")
-        mok,total=_manifest(c)
+        recorded_candidate=next((item for item in recorded if isinstance(item,dict) and item.get("name")==n),None)
+        mok,total=_manifest(c,recorded_candidate)
         if not mok: codes.append("INVALID_MANIFEST")
         predok=bool(rows) and isinstance(n,str) and all(isinstance(r,dict) and not isinstance(r.get("label"),bool) and r.get("label") in {0,1} and isinstance(r.get("slice"),str) and bool(r.get("slice")) and isinstance(r.get("predictions"),dict) and not isinstance(r["predictions"].get(n),bool) and r["predictions"].get(n) in {0,1} for r in rows)
         agg=None;slices={k:None for k in req}
