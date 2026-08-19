@@ -38,8 +38,7 @@ def _policy_valid(policy: dict[str, Any]) -> bool:
         and 0 <= float(policy["accuracyFloor"]) <= 1
         and is_finite_number(policy.get("maxLatencyMs"))
         and float(policy["maxLatencyMs"]) >= 0
-        and is_finite_number(policy.get("maxSizeBytes"))
-        and float(policy["maxSizeBytes"]) >= 0
+        and is_safe_integer(policy.get("maxSizeBytes"))
         and is_finite_number(policy.get("minImprovement"))
         and float(policy["minImprovement"]) >= 0
         and isinstance(required, dict)
@@ -126,7 +125,7 @@ def handle_promote(payload: Any) -> tuple[int, dict[str, Any]]:
                 codes.append("METRIC_RANGE")
             if is_finite_number(latency) and float(latency) < 0:
                 codes.append("METRIC_RANGE")
-            if is_finite_number(size) and float(size) < 0:
+            if is_finite_number(size) and not is_safe_integer(size):
                 codes.append("METRIC_RANGE")
 
             if policy_ok:
