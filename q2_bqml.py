@@ -109,11 +109,6 @@ def _select(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
             "datasetDigest": None,
             "reasonCodes": ["INVALID_INPUT"],
         }
-    elif len(payload["trials"]) > payload["numTrialsLimit"]:
-        response = {
-            "runId": run_id, "selectedTrialId": None, "trainRowIds": [], "evalRowIds": [],
-            "featureNames": [], "datasetDigest": None, "reasonCodes": ["TRIAL_LIMIT_EXCEEDED"],
-        }
     else:
         retained_by_key: dict[tuple[str, Any], dict[str, Any]] = {}
         for row in payload["rows"]:
@@ -153,13 +148,19 @@ def _select(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         }
         dataset_digest = hashlib.sha256(compact_json(digest_payload).encode("utf-8")).hexdigest()
 
+        trial_limit_exceeded = len(payload["trials"]) > payload["numTrialsLimit"]
         eligible_trials = [
             trial
             for trial in payload["trials"]
             if trial["status"] == "SUCCEEDED" and is_finite_number(trial.get("evalMetric"))
         ]
         eligible_trials.sort(key=lambda trial: (-float(trial["evalMetric"]), trial["trialId"]))
-        selected = eligible_trials[0]["trialId"] if eligible_trials else None
+        selected = eligible_trials[0]["trialId"] if eligible_trials and not trial_limit_exceeded else None
+        reasons = (
+            ["TRIAL_LIMIT_EXCEEDED"]
+            if trial_limit_exceeded
+            else ([] if selected is not None else ["NO_SUCCESSFUL_TRIAL"])
+        )
         response = {
             "runId": run_id,
             "selectedTrialId": selected,
@@ -167,7 +168,7 @@ def _select(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
             "evalRowIds": eval_ids,
             "featureNames": eligible_features,
             "datasetDigest": dataset_digest,
-            "reasonCodes": [] if selected is not None else ["NO_SUCCESSFUL_TRIAL"],
+            "reasonCodes": reasons,
         }
 
     with _LOCK:
