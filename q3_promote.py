@@ -44,7 +44,6 @@ def _policy_valid(policy: dict[str, Any]) -> bool:
         and isinstance(required, dict)
         and all(
             isinstance(name, str)
-            and name != ""
             and is_finite_number(floor)
             and 0 <= float(floor) <= 1
             for name, floor in required.items()
