@@ -30,22 +30,24 @@ def handle_bundle(p:Any):
     except: tm={}; tmok=False; violations.append('INVALID_JSON:training_manifest.json')
     if not tmok: violations.append('INVALID_TRAINING_MANIFEST')
     required=['task','baseRevision','datasetDigest','codeDigest','trainingConfigDigest','modelArtifactDigest','evaluationArtifactDigest']
-    for k in required:
-        if k not in tm: violations.append(f'MISSING_MANIFEST_FIELD:{k}')
-    if not isinstance(tm.get('baseRevision'),str) or re.fullmatch(r'[0-9a-f]{40}',tm.get('baseRevision','')) is None: violations.append('MUTABLE_BASE_REVISION')
-    for k in ['task','datasetDigest','codeDigest','trainingConfigDigest','modelArtifactDigest','evaluationArtifactDigest']:
-        if k in tm and (not isinstance(tm[k],str) or not tm[k]): violations.append('INVALID_TRAINING_MANIFEST')
-    if tm.get('modelArtifactDigest')!=modeldig: violations.append('MODEL_ARTIFACT_MISMATCH')
-    if tm.get('evaluationArtifactDigest')!=evaldig: violations.append('EVALUATION_DIGEST_MISMATCH')
+    if tmok:
+        for k in required:
+            if k not in tm: violations.append(f'MISSING_MANIFEST_FIELD:{k}')
+        if not isinstance(tm.get('baseRevision'),str) or re.fullmatch(r'[0-9a-f]{40}',tm.get('baseRevision','')) is None: violations.append('MUTABLE_BASE_REVISION')
+        for k in ['task','datasetDigest','codeDigest','trainingConfigDigest','modelArtifactDigest','evaluationArtifactDigest']:
+            if k in tm and (not isinstance(tm[k],str) or not tm[k]): violations.append('INVALID_TRAINING_MANIFEST')
+        if 'modelArtifactDigest' in tm and tm.get('modelArtifactDigest')!=modeldig: violations.append('MODEL_ARTIFACT_MISMATCH')
+        if 'evaluationArtifactDigest' in tm and tm.get('evaluationArtifactDigest')!=evaldig: violations.append('EVALUATION_DIGEST_MISMATCH')
     try: ev=json.loads(files.get('evaluation.json','')); evok=isinstance(ev,dict)
     except: ev={}; evok=False; violations.append('INVALID_JSON:evaluation.json')
     if not evok: violations.append('INVALID_EVALUATION')
-    if ev.get('modelArtifactDigest')!=modeldig: violations.append('EVALUATION_ARTIFACT_MISMATCH')
-    if not is_finite_number(ev.get('aggregate')) or not 0<=ev.get('aggregate',-1)<=1: violations.append('INVALID_AGGREGATE')
-    es=ev.get('slices') if isinstance(ev.get('slices'),dict) else {}
-    for s in slices:
-        if s not in es: violations.append(f'MISSING_SLICE:{s}')
-        elif not is_finite_number(es[s]) or not 0<=es[s]<=1: violations.append(f'SLICE_RANGE:{s}')
+    if evok:
+        if ev.get('modelArtifactDigest')!=modeldig: violations.append('EVALUATION_ARTIFACT_MISMATCH')
+        if not is_finite_number(ev.get('aggregate')) or not 0<=ev.get('aggregate',-1)<=1: violations.append('INVALID_AGGREGATE')
+        es=ev.get('slices') if isinstance(ev.get('slices'),dict) else {}
+        for s in slices:
+            if s not in es: violations.append(f'MISSING_SLICE:{s}')
+            elif not is_finite_number(es[s]) or not 0<=es[s]<=1: violations.append(f'SLICE_RANGE:{s}')
     readme=files.get('README.md',''); markers=re.findall(r'<!-- tds-model-card (.*?) -->',readme if isinstance(readme,str) else '',flags=re.S)
     card=None
     if len(markers)!=1:
