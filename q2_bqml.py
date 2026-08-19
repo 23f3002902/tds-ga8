@@ -236,7 +236,7 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
 
     test_metric: float | None = None
     slice_pass = False
-    if valid_rows and "INVALID_INPUT" not in codes and "INVALID_LINEAGE" not in codes:
+    if valid_rows:
         correct = sum(row["label"] == row["prediction"] for row in rows)
         test_metric = round(correct / len(rows), 12)
         if valid_metric_floor and test_metric < float(metric_floor):
