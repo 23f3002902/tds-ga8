@@ -200,7 +200,14 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     )
     valid_floors = valid_metric_floor and valid_slice_policy
     valid_counts = is_safe_integer(bytes_processed) and is_safe_integer(max_bytes)
-    if not valid_floors or not valid_counts or not isinstance(rows, list):
+    valid_request_identity = (
+        isinstance(run_id, str)
+        and is_safe_integer(selected_trial)
+        and isinstance(digest, str)
+        and len(digest) == 64
+        and all(char in "0123456789abcdef" for char in digest)
+    )
+    if not valid_request_identity or not valid_floors or not valid_counts or not isinstance(rows, list):
         codes.append("INVALID_INPUT")
 
     with _LOCK:
@@ -220,7 +227,7 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         codes.append("INVALID_LINEAGE")
 
     valid_rows = isinstance(rows, list) and bool(rows)
-    if valid_rows:
+    if valid_rows and "INVALID_INPUT" not in codes and "INVALID_LINEAGE" not in codes:
         for row in rows:
             if (
                 not isinstance(row, dict)
