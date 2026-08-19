@@ -32,20 +32,20 @@ def _choose(p):
 def _repair(p):
     tokens=p.get('tokens'); valid_tokens=isinstance(tokens,list) and bool(tokens)
     if valid_tokens:
-        valid_tokens=all(isinstance(t,dict) and is_safe_integer(t.get('id')) and t.get('role') in {'system','user','assistant'} and isinstance(t.get('padding'),bool) and isinstance(t.get('text'),str) for t in tokens)
+        valid_tokens=all(isinstance(t,dict) and is_safe_integer(t.get('id')) and t.get('role') in {'system','user','assistant'} and isinstance(t.get('padding'),bool) and isinstance(t.get('text'),str) for t in tokens) and len({t['id'] for t in tokens})==len(tokens)
     labels=[t['id'] if valid_tokens and t['role']=='assistant' and not t['padding'] else -100 for t in tokens] if isinstance(tokens,list) else []
     params=p.get('parameters'); allowed=p.get('allowedTargets'); pcodes=[]; train=[]
     validp=isinstance(params,list) and isinstance(allowed,list) and bool(allowed) and all(isinstance(x,str) and x for x in allowed) and len(allowed)==len(set(allowed))
     if validp:
         seen=set()
         for x in params:
-            if not isinstance(x,dict) or not isinstance(x.get('name'),str) or x['name'] in seen or not isinstance(x.get('target'),str) or not is_safe_integer(x.get('numel'),positive=True): validp=False; break
+            if not isinstance(x,dict) or not isinstance(x.get('name'),str) or not x['name'] or x['name'] in seen or not isinstance(x.get('target'),str) or not x['target'] or not is_safe_integer(x.get('numel'),positive=True): validp=False; break
             seen.add(x['name'])
             if x['target'] in allowed and (x['name'].endswith('.lora_A.weight') or x['name'].endswith('.lora_B.weight')): train.append(x)
     train.sort(key=lambda x:utf8_key(x['name']))
     count=sum(x['numel'] for x in train)
     if count>9007199254740991: validp=False
-    if not validp or not train: count=0; train=[]
+    if not train: validp=False
     files=p.get('artifactFiles')
     adapters=sorted(['adapter_config.json','adapter_model.safetensors'],key=utf8_key)
     adapterpass=isinstance(files,list) and all(isinstance(x,str) for x in files) and sorted(files,key=utf8_key)==['adapter_config.json','adapter_model.safetensors']
@@ -63,12 +63,8 @@ def _repair(p):
     if p.get('templateApplications')!=1: codes.append('CHAT_TEMPLATE_COUNT')
     if not validp or not train: codes.append('INVALID_PARAMETER')
     if p.get('inferenceMode') is not False: codes.append('INFERENCE_MODE')
-    if isinstance(files,list) and any(isinstance(x,str) and x!='adapter_model.safetensors' and (
-        x in {'model.safetensors','model.safetensors.index.json','pytorch_model.bin.index.json'}
-        or x.endswith(('.bin','.pt','.pth','.pkl','.pickle'))
-        or 'pytorch_model' in x
-        or re.fullmatch(r'model-\d{5}-of-\d{5}\.safetensors',x) is not None
-    ) for x in files): codes.append('FULL_MODEL_ARTIFACT')
+    fullmodel=isinstance(files,list) and any(isinstance(x,str) and (x=='model.safetensors' or x.endswith(('.bin','.pt','.pth','.pkl','.pickle'))) for x in files)
+    if fullmodel: codes.append('FULL_MODEL_ARTIFACT')
     if not adapterpass: codes.append('ADAPTER_FILE_SET')
     if not ckpass: codes.append('INCOMPLETE_CHECKPOINT')
     if not base: codes.append('MUTABLE_BASE_REVISION')
@@ -78,8 +74,8 @@ def _repair(p):
     if p.get('dropoutActiveDuringEval') is not False: codes.append('EVAL_DROPOUT_ACTIVE')
     if not resume: codes.append('RESUME_DIVERGENCE')
     return {'labels':labels,'templatePass':p.get('templateApplications')==1,'trainableParams':[x['name'] for x in train],
-      'trainableCount':count,'peftConfigPass':validp and bool(train) and p.get('inferenceMode') is False,
-      'adapterFiles':adapters,'checkpointComplete':ckpass,'lineagePass':lineage and base,'evalIsolated':isolated,
+      'trainableCount':count,'peftConfigPass':p.get('inferenceMode') is False and adapterpass and not fullmodel,
+      'adapterFiles':adapters,'checkpointComplete':ckpass,'lineagePass':lineage and base and batch,'evalIsolated':isolated,
       'evaluationDeterministic':p.get('dropoutActiveDuringEval') is False,'resumePass':resume,'reasonCodes':sorted_codes(codes)}
 
 def handle_adapt(p:Any):
