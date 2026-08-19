@@ -40,7 +40,7 @@ def _policy_valid(policy: dict[str, Any]) -> bool:
         and float(policy["maxLatencyMs"]) >= 0
         and is_safe_integer(policy.get("maxSizeBytes"))
         and is_finite_number(policy.get("minImprovement"))
-        and float(policy["minImprovement"]) >= 0
+        and 0 <= float(policy["minImprovement"]) <= 1
         and isinstance(required, dict)
         and all(
             isinstance(name, str)
