@@ -69,7 +69,9 @@ def _manifest(c):
         previous=key;seen.add(n);total+=b
         if total>9007199254740991:return False,None
     pkg=hashlib.sha256(compact_json(inv).encode("utf-8")).hexdigest()
-    return (True,total) if total==c.get("totalBytes") and pkg==c.get("packageDigest") else (False,None)
+    # The submitted summary is untrusted.  Keep the independently recomputed
+    # inventory total even when the submitted total or package digest is wrong.
+    return total==c.get("totalBytes") and pkg==c.get("packageDigest"),total
 
 def _policy_ok(pol,names,lats):
     if not isinstance(pol,dict) or not all(isinstance(n,str) and n for n in names): return False
