@@ -39,7 +39,7 @@ def _repair(p):
     if validp:
         seen=set()
         for x in params:
-            if not isinstance(x,dict) or not isinstance(x.get('name'),str) or x['name'] in seen or not isinstance(x.get('target'),str) or not is_safe_integer(x.get('numel'),positive=True): validp=False; break
+            if not isinstance(x,dict) or not isinstance(x.get('name'),str) or not x['name'] or x['name'] in seen or not isinstance(x.get('target'),str) or not x['target'] or not is_safe_integer(x.get('numel'),positive=True): validp=False; break
             seen.add(x['name'])
             if x['target'] in allowed and (x['name'].endswith('.lora_A.weight') or x['name'].endswith('.lora_B.weight')): train.append(x)
     train.sort(key=lambda x:utf8_key(x['name']))
@@ -61,7 +61,11 @@ def _repair(p):
     if p.get('templateApplications')!=1: codes.append('CHAT_TEMPLATE_COUNT')
     if not validp or not train: codes.append('INVALID_PARAMETER')
     if p.get('inferenceMode') is not False: codes.append('INFERENCE_MODE')
-    if isinstance(files,list) and any(isinstance(x,str) and (x in {'model.safetensors','pytorch_model.bin'} or x.endswith(('.bin','.pt','.pth'))) for x in files): codes.append('FULL_MODEL_ARTIFACT')
+    if isinstance(files,list) and any(isinstance(x,str) and (
+        x in {'model.safetensors','pytorch_model.bin','model.safetensors.index.json','pytorch_model.bin.index.json'}
+        or x.endswith(('.bin','.pt','.pth'))
+        or (x.endswith('.safetensors') and x != 'adapter_model.safetensors')
+    ) for x in files): codes.append('FULL_MODEL_ARTIFACT')
     if not adapterpass: codes.append('ADAPTER_FILE_SET')
     if ck is not None and not ckpass: codes.append('INCOMPLETE_CHECKPOINT')
     if not base: codes.append('MUTABLE_BASE_REVISION')
