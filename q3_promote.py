@@ -67,7 +67,7 @@ def handle_promote(payload: Any) -> tuple[int, dict[str, Any]]:
     champion = payload["championVersion"]
     as_of = parse_timestamp(payload.get("asOf"))
     policy_ok = _policy_valid(policy)
-    required_slices = policy.get("requiredSlices") if isinstance(policy.get("requiredSlices"), dict) else {}
+    required_slices = policy.get("requiredSlices") if policy_ok else {}
 
     # Count duplicate version strings without attempting to hash malformed JSON values.
     occurrences: dict[tuple[str, str], int] = {}
