@@ -3,6 +3,8 @@ import hashlib,json,re
 from typing import Any
 from ga8_utils import compact_json,is_finite_number,is_safe_integer,sorted_codes,utf8_key
 REQ={'README.md','training_manifest.json','evaluation.json','inventory.json','adapter_model.safetensors','adapter_config.json'}
+def _strict_json(text):
+    return json.loads(text,parse_constant=lambda value:(_ for _ in ()).throw(json.JSONDecodeError('invalid constant',value,0)))
 def handle_bundle(p:Any):
     if not isinstance(p,dict) or not isinstance(p.get('policy'),dict) or not isinstance(p.get('files'),dict): return 400,{'error':'INVALID_INPUT'}
     pol=p['policy']; files=p['files']; violations=[]
@@ -18,15 +20,15 @@ def handle_bundle(p:Any):
     invdigest=hashlib.sha256(compact_json(recomputed).encode()).hexdigest()
     try:
         inventory_text=files.get('inventory.json','')
-        inv=json.loads(inventory_text)
+        inv=_strict_json(inventory_text)
         invok=isinstance(inventory_text,str) and inventory_text==compact_json(recomputed)
     except: invok=False; violations.append('INVALID_JSON:inventory.json')
     if not invok: violations.append('INVENTORY_MISMATCH')
-    try: cfg=json.loads(files.get('adapter_config.json','')); cfgok=isinstance(cfg,dict) and is_safe_integer(cfg.get('r'),positive=True) and isinstance(cfg.get('target_modules'),list) and bool(cfg['target_modules']) and all(isinstance(x,str) and x for x in cfg['target_modules']) and len(cfg['target_modules'])==len(set(cfg['target_modules']))
+    try: cfg=_strict_json(files.get('adapter_config.json','')); cfgok=isinstance(cfg,dict) and is_safe_integer(cfg.get('r'),positive=True) and isinstance(cfg.get('target_modules'),list) and bool(cfg['target_modules']) and all(isinstance(x,str) and x for x in cfg['target_modules']) and len(cfg['target_modules'])==len(set(cfg['target_modules']))
     except: cfgok=False; violations.append('INVALID_JSON:adapter_config.json')
     if not cfgok: violations.append('INVALID_ADAPTER_CONFIG')
     modeldig=hashlib.sha256(files.get('adapter_model.safetensors','').encode()).hexdigest(); evaldig=hashlib.sha256(files.get('evaluation.json','').encode()).hexdigest()
-    try: tm=json.loads(files.get('training_manifest.json','')); tmok=isinstance(tm,dict)
+    try: tm=_strict_json(files.get('training_manifest.json','')); tmok=isinstance(tm,dict)
     except: tm={}; tmok=False; violations.append('INVALID_JSON:training_manifest.json')
     if not tmok: violations.append('INVALID_TRAINING_MANIFEST')
     required=['task','baseRevision','datasetDigest','codeDigest','trainingConfigDigest','modelArtifactDigest','evaluationArtifactDigest']
@@ -38,7 +40,7 @@ def handle_bundle(p:Any):
             if k in tm and (not isinstance(tm[k],str) or not tm[k]): violations.append('INVALID_TRAINING_MANIFEST')
         if tm.get('modelArtifactDigest')!=modeldig: violations.append('MODEL_ARTIFACT_MISMATCH')
         if tm.get('evaluationArtifactDigest')!=evaldig: violations.append('EVALUATION_DIGEST_MISMATCH')
-    try: ev=json.loads(files.get('evaluation.json','')); evok=isinstance(ev,dict)
+    try: ev=_strict_json(files.get('evaluation.json','')); evok=isinstance(ev,dict)
     except: ev={}; evok=False; violations.append('INVALID_JSON:evaluation.json')
     if not evok: violations.append('INVALID_EVALUATION')
     if evok:
@@ -54,7 +56,7 @@ def handle_bundle(p:Any):
         violations.append('MODEL_CARD_COUNT')
         if not markers: violations.append('MISSING_MODEL_CARD')
     else:
-        try: card=json.loads(markers[0]); assert isinstance(card,dict)
+        try: card=_strict_json(markers[0]); assert isinstance(card,dict)
         except: violations.append('INVALID_MODEL_CARD'); card=None
     if card is not None:
         expected={k:tm.get(k) for k in ['task','baseRevision','datasetDigest','modelArtifactDigest']}; expected.update({k:pol[k] for k in ['license','intendedUse','limitations']})
