@@ -129,21 +129,24 @@ def handle_promote(payload: Any) -> tuple[int, dict[str, Any]]:
             accuracy = evaluation.get("accuracy")
             latency = evaluation.get("latencyMs")
             size = evaluation.get("sizeBytes")
+            accuracy_in_range = is_finite_number(accuracy) and 0 <= float(accuracy) <= 1
+            latency_in_range = is_finite_number(latency) and float(latency) >= 0
+            size_in_range = is_safe_integer(size)
             if not all(is_finite_number(value) for value in (accuracy, latency, size)):
                 codes.append("NON_FINITE")
-            if is_finite_number(accuracy) and not 0 <= float(accuracy) <= 1:
+            if is_finite_number(accuracy) and not accuracy_in_range:
                 codes.append("METRIC_RANGE")
-            if is_finite_number(latency) and float(latency) < 0:
+            if is_finite_number(latency) and not latency_in_range:
                 codes.append("METRIC_RANGE")
-            if is_finite_number(size) and not is_safe_integer(size):
+            if is_finite_number(size) and not size_in_range:
                 codes.append("METRIC_RANGE")
 
             if policy_ok:
-                if is_finite_number(accuracy) and float(accuracy) < policy["accuracyFloor"]:
+                if accuracy_in_range and float(accuracy) < policy["accuracyFloor"]:
                     codes.append("ACCURACY_FLOOR")
-                if is_finite_number(latency) and float(latency) > policy["maxLatencyMs"]:
+                if latency_in_range and float(latency) > policy["maxLatencyMs"]:
                     codes.append("LATENCY_LIMIT")
-                if is_finite_number(size) and float(size) > policy["maxSizeBytes"]:
+                if size_in_range and size > policy["maxSizeBytes"]:
                     codes.append("SIZE_LIMIT")
 
             slices = evaluation.get("slices") if isinstance(evaluation.get("slices"), dict) else {}
