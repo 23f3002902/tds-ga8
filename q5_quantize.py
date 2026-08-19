@@ -40,10 +40,11 @@ def _freeze(p):
         if not isinstance(c,dict) or not baseok or not allowedok or not namesok or total is None: codes.append("INVALID_INPUT")
         has_reason=isinstance(c,dict) and "unsupportedReason" in c
         reason=c.get("unsupportedReason") if isinstance(c,dict) else None
+        reason_allowed = has_reason and isinstance(reason,str) and bool(reason) and allowedok and reason in allowed
         if has_reason:
             if not isinstance(reason,str) or not reason: codes.append("INVALID_INPUT")
             elif not allowedok or reason not in allowed: codes.append("UNALLOWED_UNSUPPORTED_REASON")
-        elif isinstance(c,dict):
+        if isinstance(c,dict) and not reason_allowed:
             if c.get("loadable") is not True: codes.append("NOT_LOADABLE")
             if c.get("calibrationDigest")!=cal: codes.append("CALIBRATION_MISMATCH")
             if c.get("tokenizerDigest")!=tok: codes.append("TOKENIZER_MISMATCH")
