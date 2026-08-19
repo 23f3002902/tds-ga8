@@ -133,10 +133,10 @@ def _object_reason_codes(item: Any) -> tuple[list[str], list[dict[str, Any]], An
 
 
 def _sort_with_json_tie(items: list[dict[str, Any]], field: str) -> list[dict[str, Any]]:
-    def key(item: dict[str, Any]) -> tuple[bytes, bytes]:
+    def key(item: dict[str, Any]) -> tuple[bool, bytes, bytes]:
         primary = item.get(field)
         first = primary.encode("utf-8") if isinstance(primary, str) else b""
-        return first, compact_json(item).encode("utf-8")
+        return not isinstance(primary, str), first, compact_json(item).encode("utf-8")
 
     return sorted(items, key=key)
 
