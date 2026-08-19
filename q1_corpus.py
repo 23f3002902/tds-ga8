@@ -85,7 +85,7 @@ def _object_reason_codes(item: Any) -> tuple[list[str], list[dict[str, Any]], An
     )
     if not generation_valid:
         codes.append("GENERATION_INVALID")
-    if generation != fetched_generation:
+    if type(generation) is not type(fetched_generation) or generation != fetched_generation:
         codes.append("GENERATION_MISMATCH")
 
     crc_valid = isinstance(crc, str) and CRC32C_RE.fullmatch(crc) is not None
