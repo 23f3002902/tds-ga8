@@ -39,7 +39,7 @@ def _repair(p):
     if validp:
         seen=set()
         for x in params:
-            if not isinstance(x,dict) or not isinstance(x.get('name'),str) or not x['name'] or x['name'] in seen or not isinstance(x.get('target'),str) or not x['target'] or not is_safe_integer(x.get('numel'),positive=True): validp=False; break
+            if not isinstance(x,dict) or not isinstance(x.get('name'),str) or x['name'] in seen or not isinstance(x.get('target'),str) or not is_safe_integer(x.get('numel'),positive=True): validp=False; break
             seen.add(x['name'])
             if x['target'] in allowed and (x['name'].endswith('.lora_A.weight') or x['name'].endswith('.lora_B.weight')): train.append(x)
     train.sort(key=lambda x:utf8_key(x['name']))
