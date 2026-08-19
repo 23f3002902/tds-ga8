@@ -19,7 +19,7 @@ from ga8_utils import (
 
 
 ROW_KEYS = {"id", "entity", "eventTime", "revision", "text"}
-URI_RE = re.compile(r"^gs://[^/]+/.+$")
+URI_RE = re.compile(r"\Ags://[^/\s]+/[^\s]+\Z")
 GENERATION_RE = re.compile(r"^[0-9]+$")
 CRC32C_RE = re.compile(r"^[0-9a-f]{8}$")
 
@@ -133,7 +133,7 @@ def _sort_with_json_tie(items: list[dict[str, Any]], field: str) -> list[dict[st
 
 
 def build_corpus(payload: Any) -> dict[str, Any] | None:
-    if not isinstance(payload, dict) or not isinstance(payload.get("objects"), list):
+    if not isinstance(payload, dict) or not isinstance(payload.get("policy"), dict) or not isinstance(payload.get("objects"), list):
         return None
 
     policy_valid, minimum, maximum, threshold = _policy(payload)
