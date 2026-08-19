@@ -22,13 +22,16 @@ def _inventory(files):
     return inv,total,hashlib.sha256(compact_json(inv).encode("utf-8")).hexdigest()
 
 def _freeze(p):
-    fid,cs=p.get("freezeId"),p.get("candidates")
-    if not isinstance(fid,str) or not 1<=len(fid)<=128 or not isinstance(cs,list) or not cs:
+    raw_fid,cs=p.get("freezeId"),p.get("candidates")
+    if not isinstance(cs,list) or not cs:
         return 400,{"error":"INVALID_INPUT"}
+    fid=raw_fid if isinstance(raw_fid,str) else ""
+    fidok=1<=len(fid)<=128
     finger=_fp(p)
-    with _L:
-        if fid in _F:
-            return (200,copy.deepcopy(_F[fid][1])) if _F[fid][0]==finger else (409,{"error":"FREEZE_ID_CONFLICT"})
+    if fidok:
+        with _L:
+            if fid in _F:
+                return (200,copy.deepcopy(_F[fid][1])) if _F[fid][0]==finger else (409,{"error":"FREEZE_ID_CONFLICT"})
     cal,tok,allowed=p.get("calibrationDigest"),p.get("tokenizerDigest"),p.get("allowedUnsupportedReasons")
     baseok=isinstance(cal,str) and bool(cal) and isinstance(tok,str) and bool(tok)
     allowedok=_unique_strings(allowed)
@@ -37,7 +40,7 @@ def _freeze(p):
     out=[]
     for c,n in zip(cs,names):
         codes=[]; inv,total,pkg=_inventory(c.get("files") if isinstance(c,dict) else None)
-        if not isinstance(c,dict) or not baseok or not allowedok or not namesok or total is None: codes.append("INVALID_INPUT")
+        if not isinstance(c,dict) or not fidok or not baseok or not allowedok or not namesok or total is None: codes.append("INVALID_INPUT")
         has_reason=isinstance(c,dict) and "unsupportedReason" in c
         reason=c.get("unsupportedReason") if isinstance(c,dict) else None
         reason_allowed = has_reason and isinstance(reason,str) and bool(reason) and allowedok and reason in allowed
@@ -53,7 +56,8 @@ def _freeze(p):
         out.append({"name":n,"status":status,"inventory":inv,"totalBytes":total,"packageDigest":pkg,"reasonCodes":codes})
     out.sort(key=lambda c:utf8_key(c["name"]) if isinstance(c["name"],str) else b"")
     resp={"freezeId":fid,"candidates":out}
-    with _L: _F[fid]=(finger,copy.deepcopy(resp))
+    if fidok:
+        with _L: _F[fid]=(finger,copy.deepcopy(resp))
     return 200,resp
 
 def _manifest(c, recorded_candidate=None):
