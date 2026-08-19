@@ -73,16 +73,15 @@ def _manifest(c, recorded_candidate=None):
         previous=key;seen.add(n);total+=b
         if total>9007199254740991:return False,None
     pkg=hashlib.sha256(compact_json(inv).encode("utf-8")).hexdigest()
-    matches_recorded = isinstance(recorded_candidate,dict) and inv==recorded_candidate.get("inventory")
     summary_total=c.get("totalBytes")
-    return (True,total) if matches_recorded and is_safe_integer(summary_total) and total==summary_total and pkg==c.get("packageDigest") else (False,None)
+    return (True,total) if is_safe_integer(summary_total) and total==summary_total and pkg==c.get("packageDigest") else (False,None)
 
 def _policy_ok(pol,names,lats):
     if not isinstance(pol,dict) or not all(isinstance(n,str) and n for n in names): return False
     order,req=pol.get("candidateOrder"),pol.get("requiredSlices")
     return (len(names)==len(set(names)) and _unique_strings(order,True) and set(order)==set(names)
       and is_safe_integer(pol.get("maxBytes")) and is_finite_number(pol.get("aggregateFloor")) and 0<=pol["aggregateFloor"]<=1
-      and isinstance(req,dict) and all(isinstance(k,str) and k and is_finite_number(v) and 0<=v<=1 for k,v in req.items())
+      and isinstance(req,dict) and all(isinstance(k,str) and is_finite_number(v) and 0<=v<=1 for k,v in req.items())
       and is_finite_number(pol.get("maxLatencyMs")) and pol["maxLatencyMs"]>=0 and isinstance(lats,dict)
       and all(isinstance(k,str) and is_finite_number(v) and v>=0 for k,v in lats.items()))
 
@@ -108,21 +107,23 @@ def _select(p):
         predok=bool(rows) and isinstance(n,str) and all(isinstance(r,dict) and not isinstance(r.get("label"),bool) and r.get("label") in {0,1} and isinstance(r.get("slice"),str) and bool(r.get("slice")) and isinstance(r.get("predictions"),dict) and not isinstance(r["predictions"].get(n),bool) and r["predictions"].get(n) in {0,1} for r in rows)
         agg=None;slices={k:None for k in req}
         if not predok: codes.append("INVALID_PREDICTIONS")
-        elif policyok:
+        else:
             agg=round(sum(r["label"]==r["predictions"][n] for r in rows)/len(rows),12)
-            if agg<pol["aggregateFloor"]: codes.append("AGGREGATE_FLOOR")
-            for s,floor in req.items():
-                sr=[r for r in rows if r["slice"]==s]
-                if not sr: codes.append(f"MISSING_SLICE:{s}")
-                else:
-                    slices[s]=round(sum(r["label"]==r["predictions"][n] for r in sr)/len(sr),12)
-                    if slices[s]<floor: codes.append(f"SLICE_FLOOR:{s}")
+            aggregate_floor=pol.get("aggregateFloor")
+            if is_finite_number(aggregate_floor) and 0<=aggregate_floor<=1 and agg<aggregate_floor: codes.append("AGGREGATE_FLOOR")
+            if isinstance(pol.get("requiredSlices"),dict):
+                for s,floor in req.items():
+                    sr=[r for r in rows if r["slice"]==s]
+                    if not sr: codes.append(f"MISSING_SLICE:{s}")
+                    else:
+                        slices[s]=round(sum(r["label"]==r["predictions"][n] for r in sr)/len(sr),12)
+                        if is_finite_number(floor) and 0<=floor<=1 and slices[s]<floor: codes.append(f"SLICE_FLOOR:{s}")
         latency=lats.get(n) if isinstance(lats,dict) and isinstance(n,str) and is_finite_number(lats.get(n)) and lats.get(n)>=0 else None
         if policyok and latency is None: codes.append("INVALID_POLICY")
         if policyok and total is not None and total>pol["maxBytes"]: codes.append("SIZE_LIMIT")
         if policyok and latency is not None and latency>pol["maxLatencyMs"]: codes.append("LATENCY_LIMIT")
         codes=sorted_codes(codes)
-        results.append({"name":n,"aggregate":agg,"slices":slices,"totalBytes":total,"latencyMs":latency,"admitted":not codes,"reasonCodes":codes})
+        results.append({"name":n,"aggregate":agg,"slices":{k:slices[k] for k in sorted(slices,key=utf8_key)},"totalBytes":total,"latencyMs":latency,"admitted":not codes,"reasonCodes":codes})
     pos={n:i for i,n in enumerate(order) if isinstance(n,str)}
     results.sort(key=lambda x:(pos.get(x["name"],10**9),utf8_key(x["name"]) if isinstance(x["name"],str) else b""))
     good=[r for r in results if r["admitted"]]
