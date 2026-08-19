@@ -198,7 +198,7 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         and len(digest) == 64
         and all(char in "0123456789abcdef" for char in digest)
     )
-    if not valid_request_identity or not valid_floors or not valid_counts or not isinstance(rows, list):
+    if not valid_request_identity or not valid_floors or not valid_counts or not isinstance(rows, list) or not rows:
         codes.append("INVALID_INPUT")
 
     with _LOCK:
@@ -231,7 +231,7 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
             ):
                 valid_rows = False
                 break
-    if not valid_rows:
+    if not valid_rows and rows:
         codes.append("INVALID_TEST_ROW")
 
     test_metric: float | None = None
