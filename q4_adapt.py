@@ -63,11 +63,10 @@ def _repair(p):
     if p.get('inferenceMode') is not False: codes.append('INFERENCE_MODE')
     if isinstance(files,list) and any(isinstance(x,str) and (
         x in {'model.safetensors','pytorch_model.bin','model.safetensors.index.json','pytorch_model.bin.index.json'}
-        or x.endswith(('.bin','.pt','.pth'))
-        or (x.endswith('.safetensors') and x != 'adapter_model.safetensors')
+        or re.fullmatch(r'(?:model|pytorch_model)-\d{5}-of-\d{5}\.(?:safetensors|bin)',x) is not None
     ) for x in files): codes.append('FULL_MODEL_ARTIFACT')
     if not adapterpass: codes.append('ADAPTER_FILE_SET')
-    if ck is not None and not ckpass: codes.append('INCOMPLETE_CHECKPOINT')
+    if not ckpass: codes.append('INCOMPLETE_CHECKPOINT')
     if not base: codes.append('MUTABLE_BASE_REVISION')
     if not lineage: codes.append('LINEAGE_MISMATCH')
     if not batch: codes.append('EFFECTIVE_BATCH_MISMATCH')
