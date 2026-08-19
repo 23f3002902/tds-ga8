@@ -152,12 +152,20 @@ def handle_promote(payload: Any) -> tuple[int, dict[str, Any]]:
                 if is_finite_number(size) and float(size) > policy["maxSizeBytes"]:
                     codes.append("SIZE_LIMIT")
 
-            slices = evaluation.get("slices") if isinstance(evaluation.get("slices"), dict) else {}
+            raw_slices = evaluation.get("slices")
+            slices = raw_slices if isinstance(raw_slices, dict) else {}
+            # Every supplied slice value is evidence and must be valid, even
+            # when that slice is not one of the policy's required slices.
+            for name, value in slices.items():
+                if not is_finite_number(value):
+                    codes.append("NON_FINITE")
+                elif not 0 <= float(value) <= 1:
+                    codes.append(f"SLICE_RANGE:{name}")
             for name, floor in required_slices.items():
                 if name not in slices:
                     codes.append(f"MISSING_SLICE:{name}")
                 elif not is_finite_number(slices[name]) or not 0 <= float(slices[name]) <= 1:
-                    codes.append(f"SLICE_RANGE:{name}")
+                    pass
                 elif policy_ok and float(slices[name]) < floor:
                     codes.append(f"SLICE_FLOOR:{name}")
 
