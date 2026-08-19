@@ -66,15 +66,15 @@ def handle_promote(payload: Any) -> tuple[int, dict[str, Any]]:
     versions = payload["versions"]
     champion = payload["championVersion"]
     as_of = parse_timestamp(payload.get("asOf"))
-    policy_ok = _policy_valid(policy) and as_of is not None
+    policy_ok = _policy_valid(policy)
     required_slices = policy.get("requiredSlices") if policy_ok else {}
 
-    # Count duplicate version strings without attempting to hash malformed JSON values.
-    occurrences: dict[tuple[str, str], int] = {}
+    # Only string identifiers participate in duplicate-version detection.
+    occurrences: dict[str, int] = {}
     for item in versions:
         value = item.get("version") if isinstance(item, dict) else None
-        marker = (type(value).__name__, repr(value))
-        occurrences[marker] = occurrences.get(marker, 0) + 1
+        if isinstance(value, str):
+            occurrences[value] = occurrences.get(value, 0) + 1
 
     failed_gates: dict[str, list[str]] = {}
     eligible: list[dict[str, Any]] = []
@@ -82,18 +82,12 @@ def handle_promote(payload: Any) -> tuple[int, dict[str, Any]]:
     for item in versions:
         version = item.get("version") if isinstance(item, dict) else None
         gate_key = _display_key(version)
-        marker = (type(version).__name__, repr(version))
         codes: list[str] = []
 
         if not _canonical_version(version):
             codes.append("INVALID_VERSION")
-        if occurrences.get(marker, 0) > 1:
+        if isinstance(version, str) and occurrences.get(version, 0) > 1:
             codes.append("DUPLICATE_VERSION")
-        # Version identity is rejected before evidence lookup or gate
-        # evaluation, so do not attach unrelated evidence codes here.
-        if codes:
-            failed_gates[gate_key] = sorted_codes(codes)
-            continue
         if not policy_ok:
             codes.append("INVALID_POLICY")
         if as_of is None:
@@ -106,11 +100,11 @@ def handle_promote(payload: Any) -> tuple[int, dict[str, Any]]:
             created_at = parse_timestamp(evaluation.get("createdAt"))
             if created_at is None:
                 codes.append("INVALID_TIMESTAMP")
-            elif as_of is not None and policy_ok:
+            elif as_of is not None:
                 age_seconds = (as_of - created_at).total_seconds()
                 if age_seconds < 0:
                     codes.append("FUTURE_EVALUATION")
-                elif age_seconds > policy["maxAgeSeconds"]:
+                elif policy_ok and age_seconds > policy["maxAgeSeconds"]:
                     codes.append("STALE_EVALUATION")
 
             artifact_digest = item.get("artifactDigest") if isinstance(item, dict) else None
@@ -142,11 +136,11 @@ def handle_promote(payload: Any) -> tuple[int, dict[str, Any]]:
                 codes.append("METRIC_RANGE")
 
             if policy_ok:
-                if accuracy_in_range and float(accuracy) < policy["accuracyFloor"]:
+                if is_finite_number(accuracy) and float(accuracy) < policy["accuracyFloor"]:
                     codes.append("ACCURACY_FLOOR")
-                if latency_in_range and float(latency) > policy["maxLatencyMs"]:
+                if is_finite_number(latency) and float(latency) > policy["maxLatencyMs"]:
                     codes.append("LATENCY_LIMIT")
-                if size_in_range and size > policy["maxSizeBytes"]:
+                if is_finite_number(size) and float(size) > policy["maxSizeBytes"]:
                     codes.append("SIZE_LIMIT")
 
             slices = evaluation.get("slices") if isinstance(evaluation.get("slices"), dict) else {}
