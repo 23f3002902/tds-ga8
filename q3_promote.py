@@ -70,10 +70,10 @@ def handle_promote(payload: Any) -> tuple[int, dict[str, Any]]:
     required_slices = policy.get("requiredSlices") if isinstance(policy.get("requiredSlices"), dict) else {}
 
     # Count duplicate version strings without attempting to hash malformed JSON values.
-    occurrences: dict[str, int] = {}
+    occurrences: dict[tuple[str, str], int] = {}
     for item in versions:
         value = item.get("version") if isinstance(item, dict) else None
-        marker = _display_key(value)
+        marker = (type(value).__name__, repr(value))
         occurrences[marker] = occurrences.get(marker, 0) + 1
 
     failed_gates: dict[str, list[str]] = {}
@@ -82,12 +82,18 @@ def handle_promote(payload: Any) -> tuple[int, dict[str, Any]]:
     for item in versions:
         version = item.get("version") if isinstance(item, dict) else None
         gate_key = _display_key(version)
+        marker = (type(version).__name__, repr(version))
         codes: list[str] = []
 
         if not _canonical_version(version):
             codes.append("INVALID_VERSION")
-        if occurrences.get(gate_key, 0) > 1:
+        if occurrences.get(marker, 0) > 1:
             codes.append("DUPLICATE_VERSION")
+        # Version identity is rejected before evidence lookup or gate
+        # evaluation, so do not attach unrelated evidence codes here.
+        if codes:
+            failed_gates[gate_key] = sorted_codes(codes)
+            continue
         if not policy_ok:
             codes.append("INVALID_POLICY")
         if as_of is None:
