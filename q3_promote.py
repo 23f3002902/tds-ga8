@@ -93,6 +93,11 @@ def handle_promote(payload: Any) -> tuple[int, dict[str, Any]]:
             codes.append("INVALID_VERSION")
         if isinstance(version, str) and occurrences.get(version, 0) > 1:
             codes.append("DUPLICATE_VERSION")
+        if codes:
+            failed_gates[gate_key] = sorted_codes(
+                failed_gates.get(gate_key, []) + codes
+            )
+            continue
         if not policy_ok:
             codes.append("INVALID_POLICY")
         if as_of is None:
