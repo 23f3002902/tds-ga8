@@ -74,7 +74,8 @@ def _manifest(c, recorded_candidate=None):
         if total>9007199254740991:return False,None
     pkg=hashlib.sha256(compact_json(inv).encode("utf-8")).hexdigest()
     matches_recorded = isinstance(recorded_candidate,dict) and inv==recorded_candidate.get("inventory")
-    return (True,total) if matches_recorded and total==c.get("totalBytes") and pkg==c.get("packageDigest") else (False,None)
+    summary_total=c.get("totalBytes")
+    return (True,total) if matches_recorded and is_safe_integer(summary_total) and total==summary_total and pkg==c.get("packageDigest") else (False,None)
 
 def _policy_ok(pol,names,lats):
     if not isinstance(pol,dict) or not all(isinstance(n,str) and n for n in names): return False
