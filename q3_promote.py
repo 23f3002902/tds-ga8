@@ -80,8 +80,13 @@ def handle_promote(payload: Any) -> tuple[int, dict[str, Any]]:
     eligible: list[dict[str, Any]] = []
 
     for item in versions:
+        if not isinstance(item, dict):
+            failed_gates["invalid"] = sorted_codes(
+                failed_gates.get("invalid", []) + ["INVALID_VERSION"]
+            )
+            continue
         version = item.get("version") if isinstance(item, dict) else None
-        gate_key = _display_key(version)
+        gate_key = _display_key(version) if version is not None else "invalid"
         codes: list[str] = []
 
         if not _canonical_version(version):
