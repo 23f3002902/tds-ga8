@@ -192,7 +192,6 @@ def _evaluate(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         isinstance(required_slices, dict)
         and all(
             isinstance(name, str)
-            and name != ""
             and is_finite_number(floor)
             and 0 <= float(floor) <= 1
             for name, floor in required_slices.items()
