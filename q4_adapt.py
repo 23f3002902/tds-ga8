@@ -44,9 +44,10 @@ def _repair(p):
             if x['target'] in allowed and (x['name'].endswith('.lora_A.weight') or x['name'].endswith('.lora_B.weight')): train.append(x)
     train.sort(key=lambda x:utf8_key(x['name']))
     count=sum(x['numel'] for x in train)
-    if count>9007199254740991: validp=False; count=0; train=[]
+    if count>9007199254740991: validp=False
+    if not validp or not train: count=0; train=[]
     files=p.get('artifactFiles')
-    adapters=sorted([x for x in files if isinstance(x,str) and x in {'adapter_config.json','adapter_model.safetensors'}],key=utf8_key) if isinstance(files,list) else []
+    adapters=sorted(['adapter_config.json','adapter_model.safetensors'],key=utf8_key)
     adapterpass=isinstance(files,list) and all(isinstance(x,str) for x in files) and sorted(files,key=utf8_key)==['adapter_config.json','adapter_model.safetensors']
     ck=p.get('checkpoint'); ckpass=isinstance(ck,dict) and set(['model','optimizer','scheduler','step','rng','dataPosition'])<=set(ck)
     import re
@@ -62,9 +63,11 @@ def _repair(p):
     if p.get('templateApplications')!=1: codes.append('CHAT_TEMPLATE_COUNT')
     if not validp or not train: codes.append('INVALID_PARAMETER')
     if p.get('inferenceMode') is not False: codes.append('INFERENCE_MODE')
-    if isinstance(files,list) and any(isinstance(x,str) and (
-        x in {'model.safetensors','pytorch_model.bin','model.safetensors.index.json','pytorch_model.bin.index.json'}
-        or re.fullmatch(r'(?:model|pytorch_model)-\d{5}-of-\d{5}\.(?:safetensors|bin)',x) is not None
+    if isinstance(files,list) and any(isinstance(x,str) and x!='adapter_model.safetensors' and (
+        x in {'model.safetensors','model.safetensors.index.json','pytorch_model.bin.index.json'}
+        or x.endswith(('.bin','.pt','.pth','.pkl','.pickle'))
+        or 'pytorch_model' in x
+        or re.fullmatch(r'model-\d{5}-of-\d{5}\.safetensors',x) is not None
     ) for x in files): codes.append('FULL_MODEL_ARTIFACT')
     if not adapterpass: codes.append('ADAPTER_FILE_SET')
     if not ckpass: codes.append('INCOMPLETE_CHECKPOINT')
@@ -75,7 +78,7 @@ def _repair(p):
     if p.get('dropoutActiveDuringEval') is not False: codes.append('EVAL_DROPOUT_ACTIVE')
     if not resume: codes.append('RESUME_DIVERGENCE')
     return {'labels':labels,'templatePass':p.get('templateApplications')==1,'trainableParams':[x['name'] for x in train],
-      'trainableCount':count,'peftConfigPass':validp and bool(train),
+      'trainableCount':count,'peftConfigPass':validp and bool(train) and p.get('inferenceMode') is False,
       'adapterFiles':adapters,'checkpointComplete':ckpass,'lineagePass':lineage and base,'evalIsolated':isolated,
       'evaluationDeterministic':p.get('dropoutActiveDuringEval') is False,'resumePass':resume,'reasonCodes':sorted_codes(codes)}
 
