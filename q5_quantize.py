@@ -74,7 +74,10 @@ def _manifest(c, recorded_candidate=None):
         if total>9007199254740991:return False,None
     pkg=hashlib.sha256(compact_json(inv).encode("utf-8")).hexdigest()
     summary_total=c.get("totalBytes")
-    return (True,total) if is_safe_integer(summary_total) and total==summary_total and pkg==c.get("packageDigest") else (False,None)
+    valid = is_safe_integer(summary_total) and total==summary_total and pkg==c.get("packageDigest")
+    # The result reports the independently recomputed total even when the
+    # submitted summary or package digest is untrustworthy.
+    return valid,total
 
 def _policy_ok(pol,names,lats):
     if not isinstance(pol,dict) or not all(isinstance(n,str) and n for n in names): return False
