@@ -153,7 +153,7 @@ def handle_promote(payload: Any) -> tuple[int, dict[str, Any]]:
                     codes.append(f"SLICE_FLOOR:{name}")
 
         codes = sorted_codes(codes)
-        failed_gates[gate_key] = codes
+        failed_gates[gate_key] = sorted_codes(failed_gates.get(gate_key, []) + codes)
         if not codes and isinstance(item, dict):
             eligible.append(item)
 
