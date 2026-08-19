@@ -122,9 +122,11 @@ def _select(p):
                         slices[s]=round(sum(r["label"]==r["predictions"][n] for r in sr)/len(sr),12)
                         if is_finite_number(floor) and 0<=floor<=1 and slices[s]<floor: codes.append(f"SLICE_FLOOR:{s}")
         latency=lats.get(n) if isinstance(lats,dict) and isinstance(n,str) and is_finite_number(lats.get(n)) and lats.get(n)>=0 else None
-        if policyok and latency is None: codes.append("INVALID_POLICY")
-        if policyok and total is not None and total>pol["maxBytes"]: codes.append("SIZE_LIMIT")
-        if policyok and latency is not None and latency>pol["maxLatencyMs"]: codes.append("LATENCY_LIMIT")
+        if latency is None: codes.append("INVALID_POLICY")
+        max_bytes=pol.get("maxBytes")
+        max_latency=pol.get("maxLatencyMs")
+        if is_safe_integer(max_bytes) and total is not None and total>max_bytes: codes.append("SIZE_LIMIT")
+        if is_finite_number(max_latency) and max_latency>=0 and latency is not None and latency>max_latency: codes.append("LATENCY_LIMIT")
         codes=sorted_codes(codes)
         results.append({"name":n,"aggregate":agg,"slices":{k:slices[k] for k in sorted(slices,key=utf8_key)},"totalBytes":total,"latencyMs":latency,"admitted":not codes,"reasonCodes":codes})
     pos={n:i for i,n in enumerate(order) if isinstance(n,str)}
