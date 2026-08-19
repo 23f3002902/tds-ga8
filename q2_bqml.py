@@ -47,6 +47,7 @@ def _valid_selection(payload: dict[str, Any]) -> bool:
         features = row.get("features")
         if (
             not isinstance(row_id, str)
+            or row_id == ""
             or row_id in row_ids
             or not isinstance(row.get("entity"), str)
             or parse_timestamp(row.get("eventTime")) is None
@@ -54,7 +55,7 @@ def _valid_selection(payload: dict[str, Any]) -> bool:
             or not is_safe_integer(row.get("version"))
             or row.get("split") not in {"TRAIN", "EVAL"}
             or not isinstance(features, dict)
-            or any(not isinstance(name, str) for name in features)
+            or any(not isinstance(name, str) or name == "" for name in features)
         ):
             return False
         row_ids.add(row_id)
